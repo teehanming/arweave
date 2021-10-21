@@ -14,6 +14,7 @@
 	get_wallet_list_chunk/2,
 	get_current_diff/0, get_diff/0,
 	get_pending_txs/0, get_pending_txs/1, get_ready_for_mining_txs/0, is_a_pending_tx/1,
+	get_current_usd_to_ar_rate/0,
 	get_current_block_hash/0,
 	get_block_index_entry/1,
 	get_2_0_hash_of_1_0_block/1,
@@ -21,8 +22,6 @@
 	get_block_anchors/0, get_recent_txs_map/0,
 	mine/0,
 	add_tx/1,
-	add_peers/1,
-	set_loss_probability/1,
 	get_mempool_size/0,
 	get_block_shadow_from_cache/1
 ]).
@@ -212,6 +211,11 @@ get_current_diff() ->
 		LastRetarget
 	).
 
+%% @doc Get the currently estimated USD to AR exchange rate.
+get_current_usd_to_ar_rate() ->
+	[{_, Rate}] = ets:lookup(node_state, usd_to_ar_rate),
+	Rate.
+
 %% @doc Returns the difficulty of the current block (the last applied one).
 get_diff() ->
 	[{diff, Diff}] = ets:lookup(node_state, diff),
@@ -270,21 +274,6 @@ get_wallet_list_chunk(RootHash, Cursor) ->
 mine() ->
 	gen_server:cast(ar_node_worker, mine).
 
-%% @doc Add a transaction to the node server loop.
-%% If accepted the tx will enter the waiting pool before being mined into the
-%% the next block.
-%% @end
+%% @doc Add a transaction to the memory pool, ready for mining.
 add_tx(TX)->
-	gen_server:cast(ar_node_worker, {add_tx, TX}).
-
-%% @doc Request to add a list of peers to the node server loop.
-add_peers(Peer) when not is_list(Peer) ->
-	add_peers([Peer]);
-add_peers(Peers) ->
-	gen_server:cast(ar_node_worker, {add_peers, Peers}).
-
-%% @doc Set the likelihood that a message will be dropped in transmission.
-%% Used primarily for testing, simulating packet loss.
-%% @end
-set_loss_probability(Prob) ->
-	gen_server:cast(ar_node_worker, {set_loss_probability, Prob}).
+	ar_events:send(tx, {ready_for_mining, TX}).

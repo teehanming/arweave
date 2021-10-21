@@ -11,6 +11,8 @@
 ]).
 
 -include_lib("arweave/include/ar.hrl").
+-include_lib("arweave/include/ar_pricing.hrl").
+
 -include_lib("eunit/include/eunit.hrl").
 
 %% @doc Create a genesis block.
@@ -55,9 +57,19 @@ init(WalletList, StartingDiff, RewardPool, TXs) ->
 			poa = #poa{},
 			size_tagged_txs = SizeTaggedTXs
 		},
-	B1 = B0#block { last_retarget = B0#block.timestamp },
-	B2 = B1#block { indep_hash = indep_hash(B1) },
-	[B2].
+	B1 =
+		case ar_fork:height_2_5() > 0 of
+			true ->
+				B0;
+			false ->
+				B0#block{
+					usd_to_ar_rate = ?NEW_WEAVE_USD_TO_AR_RATE,
+					scheduled_usd_to_ar_rate = ?NEW_WEAVE_USD_TO_AR_RATE
+				}
+		end,
+	B2 = B1#block { last_retarget = B1#block.timestamp },
+	B3 = B2#block { indep_hash = indep_hash(B2) },
+	[B3].
 
 %% @doc Take a complete block list and return a list of block hashes.
 %% Throws an error if the block list is not complete.
