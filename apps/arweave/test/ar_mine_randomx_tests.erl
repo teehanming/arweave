@@ -2,6 +2,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-include_lib("arweave/include/ar_mine.hrl").
+
 -define(ENCODED_KEY, <<"UbkeSd5Det8s6uLyuNJwCDFOZMQFa2zvsdKJ0k694LM">>).
 -define(ENCODED_HASH, <<"QQYWA46qnFENL4OTQdGU8bWBj5OKZ2OOPyynY3izung">>).
 -define(ENCODED_NONCE, <<"f_z7RLug8etm3SrmRf-xPwXEL0ZQ_xHng2A5emRDQBw">>).
@@ -11,7 +13,7 @@
 -define(ENCODED_TENTH_HASH, <<"DmwCVUMtDnUCwxcTClAOhNjxk1am6030OwGDSHfaOh4">>).
 
 randomx_backwards_compatibility_test_() ->
-    {timeout, 240, fun test_randomx_backwards_compatibility/0}.
+    {timeout, 300, fun test_randomx_backwards_compatibility/0}.
 
 test_randomx_backwards_compatibility() ->
     Key = ar_util:decode(?ENCODED_KEY), 

@@ -13,7 +13,7 @@
 -define(CLIENT_VERSION, 5).
 
 %% The current build number -- incremented for every release.
--define(RELEASE_NUMBER, 46).
+-define(RELEASE_NUMBER, 49).
 
 -define(DEFAULT_REQUEST_HEADERS,
 	[
@@ -67,6 +67,19 @@
 -define(RETARGET_BLOCKS, 10).
 -endif.
 
+%% We only do retarget if the time it took to mine ?RETARGET_BLOCKS is bigger than
+%% or equal to ?RETARGET_TOLERANCE_UPPER_BOUND or smaller than or equal to
+%% ?RETARGET_TOLERANCE_LOWER_BOUND.
+-define(RETARGET_TOLERANCE_UPPER_BOUND, ((?TARGET_TIME * ?RETARGET_BLOCKS) + ?TARGET_TIME)).
+
+%% We only do retarget if the time it took to mine ?RETARGET_BLOCKS is bigger than
+%% or equal to ?RETARGET_TOLERANCE_UPPER_BOUND or smaller than or equal to
+%% ?RETARGET_TOLERANCE_LOWER_BOUND.
+-define(RETARGET_TOLERANCE_LOWER_BOUND, ((?TARGET_TIME * ?RETARGET_BLOCKS) - ?TARGET_TIME)).
+
+%% We only do retarget if the time it took to mine ?RETARGET_BLOCKS is more than
+%% 1.1 times bigger or smaller than ?TARGET_TIME * ?RETARGET_BLOCKS. Was used before
+%% the fork 2.5 where we got rid of the floating point calculations.
 -define(RETARGET_TOLERANCE, 0.1).
 
 -define(JOIN_CLOCK_TOLERANCE, 15).
@@ -96,7 +109,7 @@
 -endif.
 
 %% How long to wait before giving up on test(s).
--define(TEST_TIMEOUT, 15 * 60).
+-define(TEST_TIMEOUT, 30 * 60).
 
 %% The maximum byte size of a single POST body.
 -define(MAX_BODY_SIZE, 15 * 1024 * 1024).
@@ -243,13 +256,16 @@
 
 %% The number of the best peers to send new transactions to in parallel.
 %% Can be overriden by a command line argument.
--define(TX_PROPAGATION_PARALLELIZATION, 4).
+-define(TX_PROPAGATION_PARALLELIZATION, 6).
 
 %% The number of the best peers to send new blocks to in parallel.
 -define(BLOCK_PROPAGATION_PARALLELIZATION, 30).
 
-%% The maximum number of peers to propagate blocks or txs to, by default.
--define(DEFAULT_MAX_PROPAGATION_PEERS, 50).
+%% The maximum number of peers to propagate txs to, by default.
+-define(DEFAULT_MAX_PROPAGATION_PEERS, 40).
+
+%% The maximum number of peers to propagate blocks to, by default.
+-define(DEFAULT_MAX_BLOCK_PROPAGATION_PEERS, 50).
 
 %% When the transaction data size is smaller than this number of bytes,
 %% the transaction is gossiped to the peer without a prior check if the peer
@@ -296,10 +312,10 @@
 %% Each emitter picks a transaction from the queue and propagates it
 %% to the best peers, a configured number of peers at a time.
 %% Can be overriden by a command line argument.
--define(NUM_EMITTER_PROCESSES, 2).
+-define(NUM_EMITTER_PROCESSES, 4).
 
 %% Target number of blocks per year.
--define(BLOCK_PER_YEAR, (525600 / (?TARGET_TIME/60)) ).
+-define(BLOCK_PER_YEAR, (525600 / (?TARGET_TIME / 60))).
 
 %% The adjustment of difficutly going from SHA-384 to RandomX.
 -define(RANDOMX_DIFF_ADJUSTMENT, (-14)).
@@ -331,6 +347,15 @@
 -define(CHUNK_ID_HASH_SIZE, 32).
 
 -define(NOTE_SIZE, 32).
+
+%% Disk cache size in MB
+-ifdef(DEBUG).
+-define(DISK_CACHE_SIZE, 1).
+-define(DISK_CACHE_CLEAN_PERCENT_MAX, 20).
+-else.
+-define(DISK_CACHE_SIZE, 5120).
+-define(DISK_CACHE_CLEAN_PERCENT_MAX, 20).
+-endif.
 
 %% @doc A succinct proof of access to a recall byte found in a TX.
 -record(poa, {
@@ -384,7 +409,14 @@
 											% this one.
 	size_tagged_txs = unset,				% The list of {{`tx_id`, `data_root`}, `offset`}.
 											% Used internally, not gossiped.
-	poa = #poa{}							% The proof of access.
+	poa = #poa{},							% The proof of access.
+	usd_to_ar_rate,							% The estimated USD to AR conversion rate used
+											% in the pricing calculations.
+											% A tuple {Dividend, Divisor}.
+	scheduled_usd_to_ar_rate				% The estimated USD to AR conversion rate scheduled
+											% to be used a bit later, used to compute the
+											% necessary fee for the currently signed txs.
+											% A tuple {Dividend, Divisor}.
 }).
 
 %% @doc A transaction.
@@ -405,23 +437,6 @@
 	data_root = <<>>,	% The Merkle root of the Merkle tree of data chunks.
 	signature = <<>>,	% The signature.
 	reward = 0			% The fee in Winstons.
-}).
-
-%% Gossip protocol state.
-%% Passed to and from the gossip library functions of `ar_gossip`.
--record(gs_state, {
-	peers, % A list of the peers known to this node.
-	heard = [], % Hashes of the messages received thus far.
-	loss_probability = 0, % Message loss probability for network simulation.
-	delay = 0, % Message passing delay for network simulation.
-	xfer_speed = undefined % Transfer speed in bytes/s for network simulation.
-}).
-
-%% A message intended to be handled by the internal gossip protocol
-%% library, `ar_gossip`.
--record(gs_msg, {
-	hash,
-	data
 }).
 
 %% Peering performance of a node.
